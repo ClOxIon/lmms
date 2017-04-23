@@ -26,7 +26,7 @@
 
 #include "waveshaper.h"
 #include "lmms_math.h"
-#include "embed.cpp"
+#include "embed.h"
 #include "interpolation.h"
 
 
@@ -42,7 +42,7 @@ Plugin::Descriptor PLUGIN_EXPORT waveshaper_plugin_descriptor =
 	"Vesa Kivimäki <contact/dot/diizy/at/nbl/dot/fi>",
 	0x0100,
 	Plugin::Effect,
-	new PluginPixmapLoader( "logo" ),
+	new PluginPixmapLoader("logo"),
 	NULL,
 	NULL
 } ;
@@ -93,8 +93,8 @@ bool waveShaperEffect::processAudioBuffer( sampleFrame * _buf,
 	int inputInc = inputBuffer ? 1 : 0;
 	int outputInc = outputBufer ? 1 : 0;
 
-	float *inputPtr = inputBuffer ? &( inputBuffer->values()[ 0 ] ) : &input;
-	float *outputPtr = outputBufer ? &( outputBufer->values()[ 0 ] ) : &output;
+	const float *inputPtr = inputBuffer ? &( inputBuffer->values()[ 0 ] ) : &input;
+	const float *outputPtr = outputBufer ? &( outputBufer->values()[ 0 ] ) : &output;
 
 	for( fpp_t f = 0; f < _frames; ++f )
 	{

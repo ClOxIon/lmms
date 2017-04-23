@@ -28,24 +28,20 @@
 #include <QLayout>
 #include <QLineEdit>
 #include <QMessageBox>
-#include <QSlider>
 #include <QWhatsThis>
 #include <QScrollArea>
 
 #include "SetupDialog.h"
 #include "TabBar.h"
 #include "TabButton.h"
-#include "TabWidget.h"
 #include "gui_templates.h"
 #include "Mixer.h"
 #include "MainWindow.h"
 #include "ProjectJournal.h"
-#include "ConfigManager.h"
 #include "embed.h"
 #include "Engine.h"
 #include "debug.h"
 #include "ToolTip.h"
-#include "LcdSpinBox.h"
 #include "FileDialog.h"
 
 
@@ -812,6 +808,7 @@ SetupDialog::SetupDialog( ConfigTabs _tab_to_open ) :
 		m_audioInterfaces->addItem( it.key() );
 	}
 
+	// If no preferred audio device is saved, save the current one
 	QString audioDevName = 
 		ConfigManager::inst()->value( "mixer", "audiodev" );
 	if( audioDevName.length() == 0 )

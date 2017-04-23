@@ -38,7 +38,6 @@
 #include "Track.h"
 
 #include <assert.h>
-#include <cstdio>
 
 #include <QLayout>
 #include <QMenu>
@@ -60,20 +59,14 @@
 #include "GuiApplication.h"
 #include "FxMixerView.h"
 #include "gui_templates.h"
-#include "InstrumentTrack.h"
 #include "MainWindow.h"
 #include "Mixer.h"
-#include "DataFile.h"
-#include "PixmapButton.h"
 #include "ProjectJournal.h"
 #include "SampleTrack.h"
 #include "Song.h"
 #include "SongEditor.h"
 #include "StringPairDrag.h"
-#include "templates.h"
 #include "TextFloat.h"
-#include "ToolTip.h"
-#include "TrackContainer.h"
 
 
 /*! The width of the resize grip in pixels
@@ -171,6 +164,11 @@ void TrackContentObject::changeLength( const MidiTime & length )
 	m_length = length;
 	Engine::getSong()->updateLength();
 	emit lengthChanged();
+}
+
+bool TrackContentObject::comparePosition(const TrackContentObject *a, const TrackContentObject *b)
+{
+	return a->startPosition() < b->startPosition();
 }
 
 
@@ -2276,10 +2274,8 @@ int Track::getTCONum( const TrackContentObject * tco )
 
 /*! \brief Retrieve a list of trackContentObjects that fall within a period.
  *
- *  Here we're interested in a range of trackContentObjects that fall
- *  completely within a given time period - their start must be no earlier
- *  than the given start time and their end must be no later than the given
- *  end time.
+ *  Here we're interested in a range of trackContentObjects that intersect
+ *  the given time period.
  *
  *  We return the TCOs we find in order by time, earliest TCOs first.
  *
@@ -2290,33 +2286,16 @@ int Track::getTCONum( const TrackContentObject * tco )
 void Track::getTCOsInRange( tcoVector & tcoV, const MidiTime & start,
 							const MidiTime & end )
 {
-	for( tcoVector::iterator itO = m_trackContentObjects.begin();
-				itO != m_trackContentObjects.end(); ++itO )
+	for( TrackContentObject* tco : m_trackContentObjects )
 	{
-		TrackContentObject * tco = ( *itO );
 		int s = tco->startPosition();
 		int e = tco->endPosition();
 		if( ( s <= end ) && ( e >= start ) )
 		{
-			// ok, TCO is posated within given range
-			// now let's search according position for TCO in list
-			// 	-> list is ordered by TCO's position afterwards
-			bool inserted = false;
-			for( tcoVector::iterator it = tcoV.begin();
-						it != tcoV.end(); ++it )
-			{
-				if( ( *it )->startPosition() >= s )
-				{
-					tcoV.insert( it, tco );
-					inserted = true;
-					break;
-				}
-			}
-			if( inserted == false )
-			{
-				// no TCOs found posated behind current TCO...
-				tcoV.push_back( tco );
-			}
+			// TCO is within given range
+			// Insert sorted by TCO's position
+			tcoV.insert(std::upper_bound(tcoV.begin(), tcoV.end(), tco, TrackContentObject::comparePosition),
+						tco);
 		}
 	}
 }

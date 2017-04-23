@@ -25,7 +25,6 @@
  */
 
 #include <QApplication>
-#include <QButtonGroup>
 #include <QClipboard>
 #include <QKeyEvent>
 #include <QLabel>
@@ -34,8 +33,6 @@
 #include <QPainter>
 #include <QScrollBar>
 #include <QStyleOption>
-#include <QWheelEvent>
-#include <QString>
 #include <QSignalMapper>
 
 #ifndef __USE_XOPEN
@@ -43,7 +40,6 @@
 #endif
 
 #include <math.h>
-#include <algorithm>
 
 #include "AutomationEditor.h"
 #include "ActionGroup.h"
@@ -59,17 +55,10 @@
 #include "gui_templates.h"
 #include "InstrumentTrack.h"
 #include "MainWindow.h"
-#include "MidiEvent.h"
-#include "DataFile.h"
 #include "Pattern.h"
-#include "Piano.h"
-#include "PixmapButton.h"
-#include "Song.h"
 #include "SongEditor.h"
-#include "templates.h"
 #include "TextFloat.h"
 #include "TimeLineWidget.h"
-#include "TextFloat.h"
 
 
 #if QT_VERSION < 0x040800
@@ -187,7 +176,6 @@ PianoRoll::PianoRoll() :
 	m_startKey( INITIAL_START_KEY ),
 	m_lastKey( 0 ),
 	m_editMode( ModeDraw ),
-	m_mouseDownLeft( false ),
 	m_mouseDownRight( false ),
 	m_scrollBack( false ),
 	m_barLineColor( 0, 0, 0 ),
@@ -1923,7 +1911,6 @@ void PianoRoll::mouseReleaseEvent( QMouseEvent * me )
 
 	if( me->button() & Qt::LeftButton )
 	{
-		m_mouseDownLeft = false;
 		mustRepaint = true;
 
 		if( m_action == ActionSelectNotes && m_editMode == ModeSelect )
@@ -2925,12 +2912,6 @@ void PianoRoll::paintEvent(QPaintEvent * pe )
 		// Draw the vertical beat lines
 		int ticksPerBeat = DefaultTicksPerTact /
 			Engine::getSong()->getTimeSigModel().getDenominator();
-
-		// triplet mode occurs if the note quantization isn't a multiple of 3
-		if( quantization() % 3 != 0 )
-		{
-			ticksPerBeat = static_cast<int>( ticksPerBeat * 2.0/3.0 );
-		}
 
 		for( tick = m_currentPosition - m_currentPosition % ticksPerBeat,
 			x = xCoordOfTick( tick ); x <= width();

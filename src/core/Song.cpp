@@ -29,9 +29,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMessageBox>
-#include <QApplication>
 
-#include <math.h>
+#include <functional>
 
 #include "AutomationTrack.h"
 #include "AutomationEditor.h"
@@ -49,20 +48,13 @@
 #include "GuiApplication.h"
 #include "ImportFilter.h"
 #include "ExportFilter.h"
-#include "InstrumentTrack.h"
 #include "MainWindow.h"
 #include "FileDialog.h"
-#include "MidiClient.h"
-#include "DataFile.h"
-#include "NotePlayHandle.h"
 #include "Pattern.h"
 #include "PianoRoll.h"
 #include "ProjectJournal.h"
 #include "ProjectNotes.h"
-#include "ProjectRenderer.h"
-#include "RenameDialog.h"
 #include "SongEditor.h"
-#include "templates.h"
 #include "TextFloat.h"
 #include "TimeLineWidget.h"
 #include "PeakController.h"
@@ -386,13 +378,7 @@ void Song::processNextBuffer()
 
 		if( ( f_cnt_t ) currentFrame == 0 )
 		{
-			if( m_playMode == Mode_PlaySong )
-			{
-				m_globalAutomationTrack->play(
-						m_playPos[m_playMode],
-						framesToPlay,
-						framesPlayed, tcoNum );
-			}
+			processAutomations(trackList, m_playPos[m_playMode], framesToPlay);
 
 			// loop through all tracks and play them
 			for( int i = 0; i < trackList.size(); ++i )
@@ -412,6 +398,69 @@ void Song::processNextBuffer()
 				/ getTempo();
 		m_elapsedTacts = m_playPos[Mode_PlaySong].getTact();
 		m_elapsedTicks = ( m_playPos[Mode_PlaySong].getTicks() % ticksPerTact() ) / 48;
+	}
+}
+
+
+void Song::processAutomations(const TrackList &tracklist, MidiTime timeStart, fpp_t)
+{
+	AutomatedValueMap values;
+
+	QSet<const AutomatableModel*> recordedModels;
+
+	TrackContainer* container = this;
+	int tcoNum = -1;
+
+	switch (m_playMode)
+	{
+	case Mode_PlaySong:
+		break;
+	case Mode_PlayBB:
+	{
+		Q_ASSERT(tracklist.size() == 1);
+		Q_ASSERT(tracklist.at(0)->type() == Track::BBTrack);
+		auto bbTrack = dynamic_cast<BBTrack*>(tracklist.at(0));
+		auto bbContainer = Engine::getBBTrackContainer();
+		container = bbContainer;
+		tcoNum = bbTrack->index();
+	}
+		break;
+	default:
+		return;
+	}
+
+	values = container->automatedValuesAt(timeStart, tcoNum);
+	TrackList tracks = container->tracks();
+
+	Track::tcoVector tcos;
+	for (Track* track : tracks)
+	{
+		if (track->type() == Track::AutomationTrack) {
+			track->getTCOsInRange(tcos, 0, timeStart);
+		}
+	}
+
+	// Process recording
+	for (TrackContentObject* tco : tcos)
+	{
+		auto p = dynamic_cast<AutomationPattern *>(tco);
+		MidiTime relTime = timeStart - p->startPosition();
+		if (p->isRecording() && relTime >= 0 && relTime < p->length())
+		{
+			const AutomatableModel* recordedModel = p->firstObject();
+			p->recordValue(relTime, recordedModel->value<float>());
+
+			recordedModels << recordedModel;
+		}
+	}
+
+	// Apply values
+	for (auto it = values.begin(); it != values.end(); it++)
+	{
+		if (! recordedModels.contains(it.key()))
+		{
+			it.key()->setAutomatedValue(it.value());
+		}
 	}
 }
 
@@ -785,6 +834,12 @@ bpm_t Song::getTempo()
 AutomationPattern * Song::tempoAutomationPattern()
 {
 	return AutomationPattern::globalAutomationPattern( &m_tempoModel );
+}
+
+
+AutomatedValueMap Song::automatedValuesAt(MidiTime time, int tcoNum) const
+{
+	return TrackContainer::automatedValuesFromTracks(TrackList(tracks()) << m_globalAutomationTrack, time, tcoNum);
 }
 
 

@@ -23,6 +23,7 @@
  *
  */
 
+#include <cmath>
 
 #include <QPainter>
 #include <QDomElement>
@@ -39,7 +40,7 @@
 #include "Engine.h"
 #include "Graph.h"
 
-#include "embed.cpp"
+#include "embed.h"
 
 extern "C"
 {

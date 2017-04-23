@@ -34,13 +34,13 @@
 #include "ConfigManager.h"
 #include "ControllerRackView.h"
 #include "FxMixerView.h"
-#include "InstrumentTrack.h"
 #include "MainWindow.h"
 #include "PianoRoll.h"
 #include "ProjectNotes.h"
 #include "SongEditor.h"
 
 #include <QApplication>
+#include <QDir>
 #include <QMessageBox>
 #include <QSplashScreen>
 
@@ -66,6 +66,10 @@ GuiApplication::GuiApplication()
 		ConfigManager::inst()->createWorkingDir();
 	}
 	// Init style and palette
+	QDir::addSearchPath("artwork", ConfigManager::inst()->artworkDir());
+	QDir::addSearchPath("artwork", ConfigManager::inst()->defaultArtworkDir());
+	QDir::addSearchPath("artwork", ":/artwork");
+
 	LmmsStyle* lmmsstyle = new LmmsStyle();
 	QApplication::setStyle(lmmsstyle);
 

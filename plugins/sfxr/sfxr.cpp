@@ -35,6 +35,7 @@ float frnd(float range)
 	return (float)rnd(10000)/10000*range;
 }
 
+#include <cmath>
 
 #include <QDomElement>
 
@@ -51,7 +52,7 @@ float frnd(float range)
 #include "MidiTime.h"
 #include "Mixer.h"
 
-#include "embed.cpp"
+#include "embed.h"
 
 extern "C"
 {

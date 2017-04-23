@@ -27,8 +27,9 @@
 
 #include "AutomationEditor.h"
 
+#include <cmath>
+
 #include <QApplication>
-#include <QButtonGroup>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLayout>
@@ -36,16 +37,11 @@
 #include <QPainter>
 #include <QScrollBar>
 #include <QStyleOption>
-#include <QWheelEvent>
 #include <QToolTip>
-#include <QSignalMapper>
-
 
 #ifndef __USE_XOPEN
 #define __USE_XOPEN
 #endif
-
-#include <math.h>
 
 #include "ActionGroup.h"
 #include "SongEditor.h"
@@ -53,8 +49,6 @@
 #include "GuiApplication.h"
 #include "embed.h"
 #include "Engine.h"
-#include "PixmapButton.h"
-#include "templates.h"
 #include "gui_templates.h"
 #include "TimeLineWidget.h"
 #include "ToolTip.h"
@@ -63,7 +57,6 @@
 #include "BBTrackContainer.h"
 #include "PianoRoll.h"
 #include "debug.h"
-#include "MeterModel.h"
 #include "StringPairDrag.h"
 #include "ProjectJournal.h"
 
@@ -103,6 +96,7 @@ AutomationEditor::AutomationEditor() :
 	m_y_delta( DEFAULT_Y_DELTA ),
 	m_y_auto( true ),
 	m_editMode( DRAW ),
+	m_mouseDownRight( false ),
 	m_scrollBack( false ),
 	m_barLineColor( 0, 0, 0 ),
 	m_beatLineColor( 0, 0, 0 ),
@@ -539,6 +533,11 @@ void AutomationEditor::mousePressEvent( QMouseEvent* mouseEvent )
 				++it;
 			}
 
+			if( mouseEvent->button() == Qt::RightButton )
+			{
+				m_mouseDownRight = true;
+			}
+
 			// left button??
 			if( mouseEvent->button() == Qt::LeftButton &&
 							m_editMode == DRAW )
@@ -649,6 +648,19 @@ void AutomationEditor::mousePressEvent( QMouseEvent* mouseEvent )
 
 void AutomationEditor::mouseReleaseEvent(QMouseEvent * mouseEvent )
 {
+	bool mustRepaint = false;
+
+	if ( mouseEvent->button() == Qt::RightButton )
+	{
+		m_mouseDownRight = false;
+		mustRepaint = true;
+	}
+
+	if( mouseEvent->button() == Qt::LeftButton )
+	{
+		mustRepaint = true;
+	}
+
 	if( m_editMode == DRAW )
 	{
 		if( m_action == MOVE_VALUE )
@@ -659,6 +671,11 @@ void AutomationEditor::mouseReleaseEvent(QMouseEvent * mouseEvent )
 	}
 
 	m_action = NONE;
+
+	if( mustRepaint )
+	{
+		repaint();
+	}
 }
 
 
@@ -1236,13 +1253,6 @@ void AutomationEditor::paintEvent(QPaintEvent * pe )
 		int ticksPerBeat = DefaultTicksPerTact /
 			Engine::getSong()->getTimeSigModel().getDenominator();
 
-		// triplet mode occurs if the note quantization isn't a multiple of 3
-		// note that the automation editor does not support triplets yet
-		if( AutomationPattern::quantization() % 3 != 0 )
-		{
-			ticksPerBeat = static_cast<int>( ticksPerBeat * 2.0/3.0 );
-		}
-
 		for( tick = m_currentPosition - m_currentPosition % ticksPerBeat,
 				 x = xCoordOfTick( tick );
 			 x<=width();
@@ -1284,7 +1294,8 @@ void AutomationEditor::paintEvent(QPaintEvent * pe )
 
 	if( validPattern() )
 	{
-		int len_ticks = 4;
+		//NEEDS Change in CSS
+		//int len_ticks = 4;
 		timeMap & time_map = m_pattern->getTimeMap();
 
 		//Don't bother doing/rendering anything if there is no automation points
@@ -1307,8 +1318,9 @@ void AutomationEditor::paintEvent(QPaintEvent * pe )
 				{
 					break;
 				}
-
-				bool is_selected = false;
+				
+				//NEEDS Change in CSS
+				/*bool is_selected = false;
 				// if we're in move-mode, we may only draw
 				// values in selected area, that have originally
 				// been selected and not values that are now in
@@ -1326,15 +1338,34 @@ void AutomationEditor::paintEvent(QPaintEvent * pe )
 					it.key() + len_ticks <= sel_pos_end )
 				{
 					is_selected = true;
-				}
+				}*/
 
 				float *values = m_pattern->valuesAfter( it.key() );
-				for( int i = 0; i < (it+1).key() - it.key(); i++ )
-				{
 
-					drawLevelTick( p, it.key() + i, values[i],
-									is_selected );
+				float nextValue;
+				if ( m_pattern->valuesAfter( ( it + 1 ).key() ) != NULL )
+				{
+					nextValue = *( m_pattern->valuesAfter( ( it + 1 ).key() ) );
 				}
+				else
+				{
+					nextValue = values[ ( it + 1 ).key() - it.key() -1 ];
+				}
+
+				p.setRenderHints( QPainter::Antialiasing, true );
+				QPainterPath path;
+				path.moveTo( QPointF( xCoordOfTick( it.key() ), yCoordOfLevel( 0 ) ) );
+				for( int i = 0; i < ( it + 1 ).key() - it.key(); i++ )
+				{	path.lineTo( QPointF( xCoordOfTick( it.key() + i ), yCoordOfLevel( values[i] ) ) );
+					//NEEDS Change in CSS
+					//drawLevelTick( p, it.key() + i, values[i], is_selected ); 
+					
+				}
+				path.lineTo( QPointF( xCoordOfTick( ( it + 1 ).key() ), yCoordOfLevel( nextValue ) ) );
+				path.lineTo( QPointF( xCoordOfTick( ( it + 1 ).key() ), yCoordOfLevel( 0 ) ) );
+				path.lineTo( QPointF( xCoordOfTick( it.key() ), yCoordOfLevel( 0 ) ) );
+				p.fillPath( path, graphColor() );
+				p.setRenderHints( QPainter::Antialiasing, false );
 				delete [] values;
 
 				// Draw circle
@@ -1349,7 +1380,7 @@ void AutomationEditor::paintEvent(QPaintEvent * pe )
 				// TODO: Find out if the section after the last control
 				// point is able to be selected and if so set this
 				// boolean correctly
-				drawLevelTick( p, i, it.value(), false );
+				drawLevelTick( p, i, it.value()); ////NEEDS Change in CSS:, false );
 			}
 			// Draw circle(the last one)
 			drawAutomationPoint(p, it);
@@ -1412,7 +1443,21 @@ void AutomationEditor::paintEvent(QPaintEvent * pe )
 	// draw current edit-mode-icon below the cursor
 	switch( m_editMode )
 	{
-		case DRAW: cursor = s_toolDraw; break;
+		case DRAW:
+			if( m_mouseDownRight )
+			{
+				cursor = s_toolErase;
+			}
+			else if( m_action == MOVE_VALUE )
+			{
+				cursor = s_toolMove;
+			}
+			else
+			{
+				cursor = s_toolDraw;
+			}
+
+			break;
 		case ERASE: cursor = s_toolErase; break;
 		case SELECT: cursor = s_toolSelect; break;
 		case MOVE: cursor = s_toolMove; break;
@@ -1433,27 +1478,25 @@ int AutomationEditor::xCoordOfTick(int tick )
 
 
 
-int AutomationEditor::yCoordOfLevel(float level )
+float AutomationEditor::yCoordOfLevel(float level )
 {
 	int grid_bottom = height() - SCROLLBAR_SIZE - 1;
 	if( m_y_auto )
 	{
-		return (int)( grid_bottom - ( grid_bottom - TOP_MARGIN )
-						* ( level - m_minLevel )
-						/ ( m_maxLevel - m_minLevel ) );
+		return ( grid_bottom - ( grid_bottom - TOP_MARGIN ) * ( level - m_minLevel ) / ( m_maxLevel - m_minLevel ) );
 	}
 	else
 	{
-		return (int)( grid_bottom - ( level - m_bottomLevel )
-								* m_y_delta );
+		return ( grid_bottom - ( level - m_bottomLevel ) * m_y_delta );
 	}
 }
 
 
 
 
-void AutomationEditor::drawLevelTick(QPainter & p, int tick, float value,
-							bool is_selected )
+				//NEEDS Change in CSS
+void AutomationEditor::drawLevelTick(QPainter & p, int tick, float value)
+				//			bool is_selected )
 {
 	int grid_bottom = height() - SCROLLBAR_SIZE - 1;
 	const int x = xCoordOfTick( tick );
@@ -1481,9 +1524,14 @@ void AutomationEditor::drawLevelTick(QPainter & p, int tick, float value,
 			rect_height = (int)( value * m_y_delta );
 		}
 
-		QBrush currentColor = is_selected
+		//NEEDS Change in CSS
+		/*QBrush currentColor = is_selected
 			? QBrush( QColor( 0x00, 0x40, 0xC0 ) )
 			: graphColor();
+
+		*/
+
+		QBrush currentColor = graphColor();
 
 		p.fillRect( x, y_start, rect_width, rect_height, currentColor );
 	}

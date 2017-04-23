@@ -31,7 +31,6 @@
 #include <QtCore/QVector>
 
 #include "TrackContainer.h"
-#include "AutomatableModel.h"
 #include "Controller.h"
 #include "MeterModel.h"
 #include "VstSyncController.h"
@@ -205,6 +204,9 @@ public:
 		return m_globalAutomationTrack;
 	}
 
+	//TODO: Add Q_DECL_OVERRIDE when Qt4 is dropped
+	AutomatedValueMap automatedValuesAt(MidiTime time, int tcoNum = -1) const;
+
 	// file management
 	void createNewProject();
 	void createNewProjectFromTemplate( const QString & templ );
@@ -325,6 +327,7 @@ private:
 
 	void removeAllControllers();
 
+	void processAutomations(const TrackList& tracks, MidiTime timeStart, fpp_t frames);
 
 	AutomationTrack * m_globalAutomationTrack;
 

@@ -24,7 +24,6 @@
  */
 
 #include <QDir>
-#include <QFile>
 #include <QQueue>
 #include <QApplication>
 #include <QCloseEvent>
@@ -36,26 +35,21 @@
 #include <QMessageBox>
 #include <QMdiSubWindow>
 #include <QPainter>
-#include <QWidget>
 
 #include "FileDialog.h"
 #include "InstrumentTrack.h"
-#include "AudioPort.h"
 #include "AutomationPattern.h"
 #include "BBTrack.h"
 #include "CaptionMenu.h"
 #include "ConfigManager.h"
 #include "ControllerConnection.h"
-#include "debug.h"
 #include "EffectChain.h"
 #include "EffectRackView.h"
 #include "embed.h"
-#include "Engine.h"
 #include "FileBrowser.h"
 #include "FxMixer.h"
 #include "FxMixerView.h"
 #include "GuiApplication.h"
-#include "InstrumentSoundShaping.h"
 #include "InstrumentSoundShapingView.h"
 #include "FadeButton.h"
 #include "gui_templates.h"
@@ -71,20 +65,14 @@
 #include "MidiPortMenu.h"
 #include "Mixer.h"
 #include "MixHelpers.h"
-#include "DataFile.h"
-#include "NotePlayHandle.h"
 #include "Pattern.h"
 #include "PluginFactory.h"
 #include "PluginView.h"
 #include "SamplePlayHandle.h"
 #include "Song.h"
 #include "StringPairDrag.h"
-#include "TabWidget.h"
-#include "ToolTip.h"
 #include "TrackContainerView.h"
 #include "TrackLabelButton.h"
-#include "ValueBuffer.h"
-#include "volume.h"
 
 
 const char * volume_help = QT_TRANSLATE_NOOP( "InstrumentTrack",
@@ -107,6 +95,7 @@ InstrumentTrack::InstrumentTrack( TrackContainer* tc ) :
 	m_notes(),
 	m_sustainPedalPressed( false ),
 	m_silentBuffersProcessed( false ),
+	m_previewMode( false ),
 	m_baseNoteModel( 0, 0, KeysPerOctave * NumOctaves - 1, this,
 							tr( "Base note" ) ),
 	m_volumeModel( DefaultVolume, MinVolume, MaxVolume, 0.1f, this, tr( "Volume" ) ),
@@ -736,7 +725,10 @@ void InstrumentTrack::loadTrackSpecificSettings( const QDomElement & thisElement
 	m_pitchRangeModel.loadSettings( thisElement, "pitchrange" );
 	m_pitchModel.loadSettings( thisElement, "pitch" );
 	m_effectChannelModel.setRange( 0, Engine::fxMixer()->numChannels()-1 );
-	m_effectChannelModel.loadSettings( thisElement, "fxch" );
+	if ( !m_previewMode )
+	{
+		m_effectChannelModel.loadSettings( thisElement, "fxch" );
+	}
 	m_baseNoteModel.loadSettings( thisElement, "basenote" );
 	m_useMasterPitchModel.loadSettings( thisElement, "usemasterpitch");
 
@@ -798,6 +790,14 @@ void InstrumentTrack::loadTrackSpecificSettings( const QDomElement & thisElement
 	}
 	updatePitchRange();
 	unlock();
+}
+
+
+
+
+void InstrumentTrack::setPreviewMode( const bool value )
+{
+	m_previewMode = value;
 }
 
 
@@ -1786,7 +1786,7 @@ void InstrumentTrackWindow::viewInstrumentInDirection(int d)
 		idxOfNext = (idxOfNext + d + trackViews.size()) % trackViews.size();
 		newView = dynamic_cast<InstrumentTrackView*>(trackViews[idxOfNext]);
 		// the window that should be brought to focus is the FIRST InstrumentTrackView that comes after us
-		if (bringToFront == nullptr && newView != nullptr) 
+		if (bringToFront == nullptr && newView != nullptr)
 		{
 			bringToFront = newView;
 		}
@@ -1803,7 +1803,7 @@ void InstrumentTrackWindow::viewInstrumentInDirection(int d)
 		// save current window pos and then hide the window by unchecking its button in the track list
 		QPoint curPos = parentWidget()->pos();
 		m_itv->m_tlb->setChecked(false);
-		
+
 		// enable the new window by checking its track list button & moving it to where our window just was
 		newView->m_tlb->setChecked(true);
 		newView->getInstrumentTrackWindow()->parentWidget()->move(curPos);
